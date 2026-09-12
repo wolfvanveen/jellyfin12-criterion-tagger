@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Jellyfin Criterion Collection Tagger
+Jellyfin Criterion Collection Tagger updated for Jellyfin 12.0
 
 Tags Criterion Collection movies in your Jellyfin library.
 Requires: criterion-collection.json (1,669 titles)
@@ -15,7 +15,7 @@ import json
 import re
 from difflib import SequenceMatcher
 
-DB_PATH = "/srv/media-server/jellyfin/config/data/library.db"
+DB_PATH = "jellyfin.db"
 CRITERION_JSON = "criterion-collection.json"
 
 def normalize(title):
@@ -35,13 +35,13 @@ cursor = conn.cursor()
 
 # Get all movies
 cursor.execute("""
-    SELECT guid, Name, ProductionYear, Tags
-    FROM TypedBaseItems
-    WHERE type = 'MediaBrowser.Controller.Entities.Movies.Movie'
+    SELECT Id, Name, ProductionYear, Tags
+    FROM BaseItems
+    WHERE Type = 'MediaBrowser.Controller.Entities.Movies.Movie'
 """)
 
 matches = []
-for guid, name, year, tags in cursor.fetchall():
+for item_id, name, year, tags in cursor.fetchall():
     if tags and 'criterion' in tags.lower():
         continue  # Already tagged
 
@@ -50,11 +50,12 @@ for guid, name, year, tags in cursor.fetchall():
     # Match against criterion list
     for c in criterion:
         if c['year'] == year and similarity(norm, normalize(c['title'])) >= 0.90:
-            matches.append((guid, name, year, tags or ''))
+            matches.append((item_id, name, year, tags or ''))
             break
 
 if not matches:
     print("No new Criterion movies found")
+    conn.close()
     exit()
 
 # Show matches
@@ -64,9 +65,9 @@ for _, name, year, _ in matches:
 
 # Confirm and tag
 if input(f"\nTag these {len(matches)} movies? (yes/no): ").lower() == 'yes':
-    for guid, name, year, tags in matches:
+    for item_id, name, year, tags in matches:
         new_tags = (tags + '|criterion') if tags else 'criterion'
-        cursor.execute("UPDATE TypedBaseItems SET Tags = ? WHERE guid = ?", (new_tags, guid))
+        cursor.execute("UPDATE BaseItems SET Tags = ? WHERE Id = ?", (new_tags, item_id))
         print(f"  ✓ {name}")
 
     conn.commit()

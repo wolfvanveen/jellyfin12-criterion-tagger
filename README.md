@@ -1,4 +1,4 @@
-# Jellyfin Criterion Collection Tagger
+# Jellyfin 12.0 Criterion Collection Tagger
 
 Automatically tag Criterion Collection movies in your Jellyfin library.
 
